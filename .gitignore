@@ -107,3 +107,9 @@ venv.bak/
 
 # ide file
 .idea/
+
+# cached files
+cached_cookies/
+
+# user credentials
+login_config.json

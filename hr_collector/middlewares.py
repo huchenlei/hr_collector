@@ -5,7 +5,9 @@
 # See documentation in:
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
+import random
 from scrapy import signals
+from .agents import AGENTS
 
 
 class HrCollectorSpiderMiddleware(object):
@@ -101,3 +103,12 @@ class HrCollectorDownloaderMiddleware(object):
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
+
+
+class CustomUserAgentMiddleware(object):
+    """
+    change request header nealy every time
+    """
+
+    def process_request(self, request, spider):
+        request.headers['User-Agent'] = random.choice(AGENTS)

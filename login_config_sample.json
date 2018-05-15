@@ -1,0 +1,5 @@
+{
+  "_instruction": "to use this file, change the corresponding fields and change the file name to 'login_config.json'",
+  "username": "Your login username(email)",
+  "password": "Your password"
+}
