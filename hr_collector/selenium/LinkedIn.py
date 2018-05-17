@@ -1,5 +1,7 @@
 import json
+from lxml import etree
 from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
 
 
 class LinkedIn(object):
@@ -52,6 +54,30 @@ class LinkedIn(object):
 
         self.driver.refresh()
 
+    @staticmethod
+    def _extract_search_results(html):
+        root = etree.HTML(html)
+        return root.xpath("//li[contains(@class, 'search-result')]//a[contains(@href, '/in')]/@href")
+
+    def search(self, keyword, options=None, max_req=1000):
+        # TODO add filter options
+        search_box = self.driver.find_element_by_xpath(
+            "//form[@id='extended-nav-search']//input[@placeholder='Search']")
+        search_box.send_keys(keyword)
+        search_box.send_keys(Keys.RETURN)
+
+        self.driver.implicitly_wait(3000)
+
+        req_count = 0
+        ret = []
+        next_xpath = "//button[@class='next']"
+        while len(self.driver.find_elements_by_xpath(next_xpath)) > 0 and req_count < max_req:
+            ret.extend(self._extract_search_results(self.driver.page_source))
+            self.driver.find_element_by_xpath(next_xpath).click()
+            req_count += 1
+
+        return ret
+
 
 if __name__ == '__main__':
     login = json.load(open("../../login_config.json"))
@@ -61,5 +87,27 @@ if __name__ == '__main__':
     lk = LinkedIn(False)
     # lk.new_login(login_email, login_pass)
     lk.cookie_login(login_email)
+
+    r = lk.search("Google Canada", max_req=3)
+
+    print(r)
+
+    r = ['/in/amanda-hsueh-685a9225/', '/in/amanda-hsueh-685a9225/', '/in/elfreda-l-878796/', '/in/elfreda-l-878796/',
+         '/in/nancy-mcconnell-43260116/', '/in/nancy-mcconnell-43260116/', '/in/mladenraickovic/',
+         '/in/mladenraickovic/', '/in/riley-nelko-bb2b0846/', '/in/riley-nelko-bb2b0846/', '/in/cuhoward/',
+         '/in/cuhoward/', '/in/andrew-rapsey-593b671/', '/in/andrew-rapsey-593b671/', '/in/nathan-stone-a9109a49/',
+         '/in/nathan-stone-a9109a49/', '/in/amanda-hsueh-685a9225/', '/in/amanda-hsueh-685a9225/',
+         '/in/elfreda-l-878796/', '/in/elfreda-l-878796/', '/in/nancy-mcconnell-43260116/',
+         '/in/nancy-mcconnell-43260116/', '/in/mladenraickovic/', '/in/mladenraickovic/', '/in/riley-nelko-bb2b0846/',
+         '/in/riley-nelko-bb2b0846/', '/in/cuhoward/', '/in/cuhoward/', '/in/andrew-rapsey-593b671/',
+         '/in/andrew-rapsey-593b671/', '/in/nathan-stone-a9109a49/', '/in/nathan-stone-a9109a49/', '/in/rehanqureshi1/',
+         '/in/rehanqureshi1/', '/in/artidavdapatel/', '/in/artidavdapatel/', '/in/amanda-hsueh-685a9225/',
+         '/in/amanda-hsueh-685a9225/', '/in/elfreda-l-878796/', '/in/elfreda-l-878796/',
+         '/in/nancy-mcconnell-43260116/', '/in/nancy-mcconnell-43260116/', '/in/mladenraickovic/',
+         '/in/mladenraickovic/', '/in/riley-nelko-bb2b0846/', '/in/riley-nelko-bb2b0846/', '/in/cuhoward/',
+         '/in/cuhoward/', '/in/andrew-rapsey-593b671/', '/in/andrew-rapsey-593b671/', '/in/nathan-stone-a9109a49/',
+         '/in/nathan-stone-a9109a49/', '/in/rehanqureshi1/', '/in/rehanqureshi1/', '/in/artidavdapatel/',
+         '/in/artidavdapatel/']
+
 
     lk.driver.close()
