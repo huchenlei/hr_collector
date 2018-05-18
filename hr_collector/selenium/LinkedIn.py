@@ -1,12 +1,16 @@
 import json
 import time
 import logging
+import os
 from lxml import etree
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.remote.remote_connection import LOGGER
+
+from ..common import random_wait
 
 
 class url_changed(object):
@@ -25,7 +29,21 @@ class url_changed(object):
 class LinkedIn(object):
     url = "https://linkedin.com"
 
-    def __init__(self, headless=True, cache_path='../../cached_cookies', wait=10):
+    def __init__(self,
+                 headless=True,
+                 cache_path='../../cached_cookies',
+                 login_config='../../login_config.json',
+                 wait=10,
+                 **kwargs):
+
+        if "login_email" in kwargs and "login_pass" in kwargs:
+            self.login_email = kwargs["login_email"]
+            self.login_pass = kwargs["login_pass"]
+        else:
+            login = json.load(open(login_config))
+            self.login_email = login["username"]
+            self.login_pass = login["password"]
+
         options = webdriver.ChromeOptions()
         if headless:
             options.add_argument("--headless")
@@ -48,9 +66,24 @@ class LinkedIn(object):
         self.logger = logging.getLogger("_LinkedIn")
         self.logger.setLevel(logging.DEBUG)
         self.logger.addHandler(ch)
+        # set selenium logging level
+        LOGGER.setLevel(logging.WARNING)
 
     def _cookie_file(self, username):
         return self.cache_path + '/' + username + ".cookie"
+
+    def _cookie_cached(self, username):
+        return os.path.exists(self._cookie_file(username))
+
+    def login(self):
+        """
+        Choose proper login method based on existing information
+        :return: void
+        """
+        if self._cookie_cached(self.login_email):
+            self.cookie_login(self.login_email)
+        else:
+            self.new_login(self.login_email, self.login_pass)
 
     def new_login(self, username, password, cache_cookie=True):
         """
@@ -95,6 +128,7 @@ class LinkedIn(object):
         self.logger.debug("current page height {}".format(height))
         return height
 
+    @random_wait(mean=1)
     def _scrape_single_page(self, extract_data):
         """
         Scrape a single page(scroll down to bottom) and click the next button
@@ -157,18 +191,19 @@ class LinkedIn(object):
 
         return ret
 
+    @random_wait(mean=1)
+    def request_page(self, url):
+        """
+        request the given url (GET) within the linkedin domain
+        :param url: either a full url or relative url
+        :return: page html source
+        """
+        if url.startswith(self.url):
+            self.driver.get(url)
+        else:
+            self.driver.get(self.url + url)
+        self.default_wait.until(EC.invisibility_of_element_located((By.XPATH, "//div[@class='loading-bar']")))
+        return self.driver.page_source
 
-if __name__ == '__main__':
-    login = json.load(open("../../login_config.json"))
-    login_email = login["username"]
-    login_pass = login["password"]
-
-    lk = LinkedIn(False)
-    # lk.new_login(login_email, login_pass)
-    lk.cookie_login(login_email)
-
-    r = lk.search("Google Canada", max_req=3)
-
-    print(r)
-
-    lk.driver.close()
+    def close(self):
+        self.driver.close()
