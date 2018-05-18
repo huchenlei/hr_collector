@@ -1,13 +1,26 @@
 import json
+import time
+import logging
 from lxml import etree
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+
+class url_changed(object):
+    def __init__(self, url):
+        self.url = url
+
+    def __call__(self, driver, *args, **kwargs):
+        return driver.current_url != self.url
 
 
 class LinkedIn(object):
     url = "https://linkedin.com"
 
-    def __init__(self, headless=True, cache_path='../../cached_cookies'):
+    def __init__(self, headless=True, cache_path='../../cached_cookies', wait=10):
         options = webdriver.ChromeOptions()
         if headless:
             options.add_argument("--headless")
@@ -16,7 +29,20 @@ class LinkedIn(object):
             options.add_argument("--disable-gpu")
 
         self.driver = webdriver.Chrome(executable_path='/usr/local/bin/chromedriver', chrome_options=options)
+        self.driver.implicitly_wait(wait)
+        self.default_wait = WebDriverWait(self.driver, wait)
+        self.driver.maximize_window()
+
         self.cache_path = cache_path
+
+        # init logger
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        ch.setFormatter(formatter)
+        self.logger = logging.getLogger("_LinkedIn")
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.addHandler(ch)
 
     def _cookie_file(self, username):
         return self.cache_path + '/' + username + ".cookie"
@@ -59,22 +85,56 @@ class LinkedIn(object):
         root = etree.HTML(html)
         return root.xpath("//li[contains(@class, 'search-result')]//a[contains(@href, '/in')]/@href")
 
+    def _get_height(self):
+        height = self.driver.execute_script("return document.body.scrollHeight")
+        self.logger.debug("current page height {}".format(height))
+        return height
+
+    def _scrape_single_page(self):
+        ret = set()
+        last_height = self._get_height()
+
+        while True:
+            ret.update(self._extract_search_results(self.driver.page_source))
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+
+            # wait to load page TODO need other indicator other than fixed sleep
+            time.sleep(0.5)
+
+            new_height = self._get_height()
+            if new_height == last_height:
+                break
+            last_height = new_height
+
+        has_next = False
+        next_xpath = "//button[@class='next']"
+        nexts = self.driver.find_elements_by_xpath(next_xpath)
+        if nexts:
+            self.default_wait.until(EC.element_to_be_clickable((By.XPATH, next_xpath)))
+            nexts[0].click()
+            self.default_wait.until(url_changed(self.driver.current_url))
+            has_next = True
+
+        return ret, has_next
+
     def search(self, keyword, options=None, max_req=1000):
         # TODO add filter options
         search_box = self.driver.find_element_by_xpath(
             "//form[@id='extended-nav-search']//input[@placeholder='Search']")
         search_box.send_keys(keyword)
         search_box.send_keys(Keys.RETURN)
+        self.default_wait.until(url_changed(self.driver.current_url))
 
-        self.driver.implicitly_wait(3000)
+        self.logger.info("Searching keyword {} \nwith options {}".format(keyword, options))
 
         req_count = 0
         ret = []
-        next_xpath = "//button[@class='next']"
-        while len(self.driver.find_elements_by_xpath(next_xpath)) > 0 and req_count < max_req:
-            ret.extend(self._extract_search_results(self.driver.page_source))
-            self.driver.find_element_by_xpath(next_xpath).click()
+        has_next = True
+        while has_next and req_count < max_req:
             req_count += 1
+            self.logger.info("Request #{} to url {}".format(req_count, self.driver.current_url))
+            page_info, has_next = self._scrape_single_page()
+            ret.extend(page_info)
 
         return ret
 
@@ -91,23 +151,5 @@ if __name__ == '__main__':
     r = lk.search("Google Canada", max_req=3)
 
     print(r)
-
-    r = ['/in/amanda-hsueh-685a9225/', '/in/amanda-hsueh-685a9225/', '/in/elfreda-l-878796/', '/in/elfreda-l-878796/',
-         '/in/nancy-mcconnell-43260116/', '/in/nancy-mcconnell-43260116/', '/in/mladenraickovic/',
-         '/in/mladenraickovic/', '/in/riley-nelko-bb2b0846/', '/in/riley-nelko-bb2b0846/', '/in/cuhoward/',
-         '/in/cuhoward/', '/in/andrew-rapsey-593b671/', '/in/andrew-rapsey-593b671/', '/in/nathan-stone-a9109a49/',
-         '/in/nathan-stone-a9109a49/', '/in/amanda-hsueh-685a9225/', '/in/amanda-hsueh-685a9225/',
-         '/in/elfreda-l-878796/', '/in/elfreda-l-878796/', '/in/nancy-mcconnell-43260116/',
-         '/in/nancy-mcconnell-43260116/', '/in/mladenraickovic/', '/in/mladenraickovic/', '/in/riley-nelko-bb2b0846/',
-         '/in/riley-nelko-bb2b0846/', '/in/cuhoward/', '/in/cuhoward/', '/in/andrew-rapsey-593b671/',
-         '/in/andrew-rapsey-593b671/', '/in/nathan-stone-a9109a49/', '/in/nathan-stone-a9109a49/', '/in/rehanqureshi1/',
-         '/in/rehanqureshi1/', '/in/artidavdapatel/', '/in/artidavdapatel/', '/in/amanda-hsueh-685a9225/',
-         '/in/amanda-hsueh-685a9225/', '/in/elfreda-l-878796/', '/in/elfreda-l-878796/',
-         '/in/nancy-mcconnell-43260116/', '/in/nancy-mcconnell-43260116/', '/in/mladenraickovic/',
-         '/in/mladenraickovic/', '/in/riley-nelko-bb2b0846/', '/in/riley-nelko-bb2b0846/', '/in/cuhoward/',
-         '/in/cuhoward/', '/in/andrew-rapsey-593b671/', '/in/andrew-rapsey-593b671/', '/in/nathan-stone-a9109a49/',
-         '/in/nathan-stone-a9109a49/', '/in/rehanqureshi1/', '/in/rehanqureshi1/', '/in/artidavdapatel/',
-         '/in/artidavdapatel/']
-
 
     lk.driver.close()
