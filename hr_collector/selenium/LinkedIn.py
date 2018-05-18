@@ -10,6 +10,11 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 class url_changed(object):
+    """
+    An expectation checking that the url of current page has changed
+    since the object is created
+    """
+
     def __init__(self, url):
         self.url = url
 
@@ -90,12 +95,17 @@ class LinkedIn(object):
         self.logger.debug("current page height {}".format(height))
         return height
 
-    def _scrape_single_page(self):
+    def _scrape_single_page(self, extract_data):
+        """
+        Scrape a single page(scroll down to bottom) and click the next button
+        :param: extract_data function object to process page html
+        :return: scraped result, whether the page is the last page
+        """
         ret = set()
         last_height = self._get_height()
 
         while True:
-            ret.update(self._extract_search_results(self.driver.page_source))
+            ret.update(extract_data(self.driver.page_source))
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
 
             # wait to load page TODO need other indicator other than fixed sleep
@@ -118,6 +128,15 @@ class LinkedIn(object):
         return ret, has_next
 
     def search(self, keyword, options=None, max_req=1000):
+        """
+        perform a search action on linkedin website top search bar and return the result
+        links an list
+
+        :param keyword: search keyword entered in search-box
+        :param options: dictionary used to specify filter
+        :param max_req: max number of request made
+        :return: list
+        """
         # TODO add filter options
         search_box = self.driver.find_element_by_xpath(
             "//form[@id='extended-nav-search']//input[@placeholder='Search']")
@@ -133,7 +152,7 @@ class LinkedIn(object):
         while has_next and req_count < max_req:
             req_count += 1
             self.logger.info("Request #{} to url {}".format(req_count, self.driver.current_url))
-            page_info, has_next = self._scrape_single_page()
+            page_info, has_next = self._scrape_single_page(self._extract_search_results)
             ret.extend(page_info)
 
         return ret
