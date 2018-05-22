@@ -28,5 +28,3 @@ class LinkedInItem(Item):
 
     # house keeping fields
     url = Field()
-    spider = Field()
-    date = Field()

@@ -64,9 +64,13 @@ DOWNLOAD_DELAY = 3
 
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'hr_collector.pipelines.HrCollectorPipeline': 300,
-#}
+# ITEM_PIPELINES = {
+#    'hr_collector.pipelines.LinkedInPipeline': 300,
+# }
+
+# MongoDB config
+MONGO_URI = "localhost:27017"
+MONGO_DATABASE = "hr_collector"
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://doc.scrapy.org/en/latest/topics/autothrottle.html
@@ -88,3 +92,4 @@ DOWNLOAD_DELAY = 3
 #HTTPCACHE_DIR = 'httpcache'
 #HTTPCACHE_IGNORE_HTTP_CODES = []
 #HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
+

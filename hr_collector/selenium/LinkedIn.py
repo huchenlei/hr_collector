@@ -31,8 +31,8 @@ class LinkedIn(object):
 
     def __init__(self,
                  headless=True,
-                 cache_path='../../cached_cookies',
-                 login_config='../../login_config.json',
+                 cache_path='./cached_cookies',
+                 login_config='./login_config.json',
                  wait=10,
                  **kwargs):
 
@@ -192,10 +192,11 @@ class LinkedIn(object):
         return ret
 
     @random_wait(mean=1)
-    def request_page(self, url):
+    def request_page(self, url, action=None):
         """
         request the given url (GET) within the linkedin domain
         :param url: either a full url or relative url
+        :param action: function that takes an driver object and act on the web page
         :return: page html source
         """
         if url.startswith(self.url):
@@ -203,6 +204,8 @@ class LinkedIn(object):
         else:
             self.driver.get(self.url + url)
         self.default_wait.until(EC.invisibility_of_element_located((By.XPATH, "//div[@class='loading-bar']")))
+        if action:
+            action(self.driver)
         return self.driver.page_source
 
     def close(self):
